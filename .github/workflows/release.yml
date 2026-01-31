@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+  release:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  homebrew:
+    needs: [prepare, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get tarball SHA256
+        id: sha
+        run: |
+          VERSION=${{ needs.prepare.outputs.version }}
+          URL="https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz"
+          echo "Downloading from: $URL"
+          sha=$(curl -sL "$URL" | shasum -a 256 | cut -d' ' -f1)
+          echo "sha256=$sha" >> $GITHUB_OUTPUT
+          echo "SHA256: $sha"
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: isopath/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula
+        run: |
+          VERSION=${{ needs.prepare.outputs.version }}
+          SHA256=${{ steps.sha.outputs.sha256 }}
+          FORMULA_FILE="homebrew-tap/Formula/matrix.rb"
+
+          # Create formula file if it doesn't exist
+          mkdir -p homebrew-tap/Formula
+          cat > "$FORMULA_FILE" << 'EOF'
+          class Matrix < Formula
+            desc "A cmatrix-style text visualization tool"
+            homepage "https://github.com/isopath/matrix.go"
+            url "https://github.com/isopath/matrix.go/archive/refs/tags/v{{ version }}.tar.gz"
+            sha256 "{{ sha256 }}"
+            license "MIT"
+
+            depends_on "go" => :build
+
+            def install
+              system "go", "build", "-o", bin/"matrix", "."
+            end
+
+            test do
+              system "#{bin}/matrix", "--help"
+            end
+          end
+          EOF
+          
+          # Replace placeholders
+          sed -i "s/{{ version }}/$VERSION/g" "$FORMULA_FILE"
+          sed -i "s/{{ sha256 }}/$SHA256/g" "$FORMULA_FILE"
+          
+          echo "Updated formula:"
+          cat "$FORMULA_FILE"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+          commit-message: "Update matrix to v${{ needs.prepare.outputs.version }}"
+          title: "Update matrix to v${{ needs.prepare.outputs.version }}"
+          body: |
+            Automated update from [matrix.go release](https://github.com/sauravmaheshkar/matrix.go/releases/tag/v${{ needs.prepare.outputs.version }})
+            
+            **Changes:**
+            - Updated URL to v${{ needs.prepare.outputs.version }}
+            - Updated SHA256 checksum
+          branch: update-matrix-${{ needs.prepare.outputs.version }}
+          base: main
+          delete-branch: true
