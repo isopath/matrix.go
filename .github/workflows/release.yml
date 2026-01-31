@@ -76,7 +76,7 @@ jobs:
           mkdir -p homebrew-tap/Formula
           cat > "$FORMULA_FILE" << 'EOF'
           class Matrix < Formula
-            desc "A cmatrix-style text visualization tool"
+            desc "morning rain clouds up my window"
             homepage "https://github.com/isopath/matrix.go"
             url "https://github.com/isopath/matrix.go/archive/refs/tags/v{{ version }}.tar.gz"
             sha256 "{{ sha256 }}"
@@ -109,7 +109,7 @@ jobs:
           commit-message: "Update matrix to v${{ needs.prepare.outputs.version }}"
           title: "Update matrix to v${{ needs.prepare.outputs.version }}"
           body: |
-            Automated update from [matrix.go release](https://github.com/sauravmaheshkar/matrix.go/releases/tag/v${{ needs.prepare.outputs.version }})
+            Automated update from [matrix.go release](https://github.com/isopath/matrix.go/releases/tag/v${{ needs.prepare.outputs.version }})
 
             **Changes:**
             - Updated URL to v${{ needs.prepare.outputs.version }}
