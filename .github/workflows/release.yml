@@ -93,11 +93,11 @@ jobs:
             end
           end
           EOF
-          
+
           # Replace placeholders
           sed -i "s/{{ version }}/$VERSION/g" "$FORMULA_FILE"
           sed -i "s/{{ sha256 }}/$SHA256/g" "$FORMULA_FILE"
-          
+
           echo "Updated formula:"
           cat "$FORMULA_FILE"
 
@@ -110,7 +110,7 @@ jobs:
           title: "Update matrix to v${{ needs.prepare.outputs.version }}"
           body: |
             Automated update from [matrix.go release](https://github.com/sauravmaheshkar/matrix.go/releases/tag/v${{ needs.prepare.outputs.version }})
-            
+
             **Changes:**
             - Updated URL to v${{ needs.prepare.outputs.version }}
             - Updated SHA256 checksum

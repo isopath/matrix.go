@@ -58,4 +58,3 @@ Releases are automated via GitHub Actions. To create a new release:
 git tag v0.4.2
 git push origin v0.4.2
 ```
-
